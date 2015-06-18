@@ -5,6 +5,7 @@ These files are supplied as part of an [Instructable](http://www.instructables.c
 
 Addition Pentax version:
 Getting pslr-shoot from the [PK-Remote](https://sourceforge.net/projects/pkremote/) project by just compile the command line tool:
-```sudo make cli
+```bash
+sudo make cli
 sudo make install
 ```
