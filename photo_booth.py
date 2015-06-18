@@ -1,6 +1,11 @@
 #!/usr/bin/python
+##
+## pentax version using pslr-shoot instead of gphoto2.
+## Get pslr-shoot from https://sourceforge.net/projects/pkremote/
+## Just do "make cli" and "make install" after download as root on pi
+##
 
-import RPi.GPIO as GPIO, time, os, subprocess
+import RPi.GPIO as GPIO, datetime, time, os, subprocess
 
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
@@ -37,7 +42,9 @@ while True:
         time.sleep(0.1)
       GPIO.output(POSE_LED, False)
       print("SNAP")
-      gpout = subprocess.check_output("gphoto2 --capture-image-and-download --filename /home/pi/photobooth_images/photobooth%H%M%S.jpg", stderr=subprocess.STDOUT, shell=True)
+      ## pslr-shoot does not support filename with date/time substitution, so concat manually
+      d=datetime.datetime.now()
+      gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o /home/pi/photobooth_images/photobooth"+ d.strftime('%H%M%S') +".jpg", stderr=subprocess.STDOUT, shell=True)
       print(gpout)
       if "ERROR" not in gpout: 
         snap += 1

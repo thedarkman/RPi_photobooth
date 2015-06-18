@@ -1,9 +1,37 @@
 #!/bin/bash
-mogrify -resize 968x648 /home/pi/photobooth_images/*.jpg
-montage /home/pi/photobooth_images/*.jpg -tile 2x2 -geometry +10+10 /home/pi/temp_montage2.jpg
-montage /home/pi/temp_montage2.jpg /home/pi/photobooth_label.jpg -tile 2x1 -geometry +5+5 /home/pi/temp_montage3.jpg
-lp -d Canon_CP900 /home/pi/temp_montage3.jpg
+##
+## pentax version, using different aspect ratio than original
+## storing original pictures to subfolder of photobooth_images
+##
+DIR="/home/pi/photobooth_images"
 suffix=$(date +%H%M%S)
-cp /home/pi/temp_montage3.jpg /home/pi/PB_archive/PB_${suffix}.jpg
+mkdir $DIR/$suffix
+
+echo "storing original pictures to $DIR/${suffix}/"
+cp $DIR/*.jpg $DIR/${suffix}/
+
+echo "resizing ..."
+mogrify -resize 968x648 $DIR/*.jpg
+
+echo "montage 2x2 pictures ..."
+montage $DIR/*.jpg -tile 2x2 -geometry +10+10 /home/pi/temp_montage2.jpg
+
+echo "montage label ..."
+montage /home/pi/temp_montage2.jpg /home/pi/photobooth_label.jpg -tile 2x1 -geometry +5+5 /home/pi/temp_montage3.jpg
+
+## needs border otherwise printer will crop all white edges and label
+echo "adding  border ..."
+convert /home/pi/temp_montage3.jpg -bordercolor white -border 20x60  /home/pi/temp_montage4.jpg
+
+echo "sending to printer ..."
+lp -d Canon_CP910 /home/pi/temp_montage4.jpg
+
+echo "save montage in /home/pi/PB_archive/PB_${suffix}.jpg"
+cp /home/pi/temp_montage4.jpg /home/pi/PB_archive/PB_${suffix}.jpg
+
+echo "clean up ..."
 rm /home/pi/photobooth_images/*.jpg
 rm /home/pi/temp*
+
+echo "done."
+echo
