@@ -9,3 +9,5 @@ Getting pslr-shoot from the [PK-Remote](https://sourceforge.net/projects/pkremot
 sudo make cli
 sudo make install
 ```
+
+Pentax version uses button with long press (> 2seconds) for shutting down the Raspberry Pi.
