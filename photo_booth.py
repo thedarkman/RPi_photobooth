@@ -44,7 +44,16 @@ def blinkPoseLed():
     time.sleep(0.1)
     GPIO.output(POSE_LED, True)
     time.sleep(0.1)
-  GPIO.output(POSE_LED, False) 
+  GPIO.output(POSE_LED, False)
+
+def blinkGreenLed():
+  GPIO.output(BUTTON_LED, True)
+  for i in range(10):
+    GPIO.output(BUTTON_LED, False)
+    time.sleep(0.1)
+    GPIO.output(BUTTON_LED, True)
+    time.sleep(0.1)
+  GPIO.output(BUTTON_LED, False)
 
 def tap():
   snap = 0
@@ -78,6 +87,7 @@ def tap():
   GPIO.output(BUTTON_LED, True)
 
 def hold():
+  blinkGreenLed()
   print("long pressed button! Shutting down system")
   subprocess.call("sudo shutdown -hP now", shell=True)
 
@@ -113,4 +123,3 @@ while True:
       else:                         # Button pressed
         tapEnable  = True           # Enable tap and hold actions
         holdEnable = True
-
