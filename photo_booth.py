@@ -25,6 +25,12 @@ GPIO.output(PRINT_LED, False)
 HOLDTIME = 2                        # Duration for button hold (shutdown)
 TAPTIME = 0.01                      # Debounce time for button taps
 
+# init file path
+directory = '/home/pi/photobooth_images'
+if os.path.exists('/mnt/hdd/photobooth_images'):
+  directory = '/mnt/hdd/photobooth_images'
+  print("found hdd folder: "+ directory)
+
 @atexit.register
 def cleanup():
   GPIO.output(BUTTON_LED, False)
@@ -64,7 +70,7 @@ def tap():
     print("SNAP")
     ## pslr-shoot does not support filename with date/time substitution, so concat manually
     d=datetime.datetime.now()
-    gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o /home/pi/photobooth_images/photobooth"+ d.strftime('%H%M%S') +".jpg", stderr=subprocess.STDOUT, shell=True)
+    gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o "+ directory +"/photobooth"+ d.strftime('%H%M%S') +".jpg", stderr=subprocess.STDOUT, shell=True)
     print(gpout)
     if "ERROR" not in gpout:
       snap += 1

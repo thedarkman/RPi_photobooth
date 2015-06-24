@@ -4,7 +4,15 @@
 ## storing original pictures to subfolder of photobooth_images
 ##
 DIR="/home/pi/photobooth_images"
-suffix=$(date +%H%M%S)
+if [ -d "/mnt/hdd/photobooth_images" ]; then
+   DIR="/mnt/hdd/photobooth_images"
+fi
+ARCH_DIR="/home/pi/PB_archive"
+if [ -d "/mnt/hdd/PB_archive" ]; then
+   ARCH_DIR="/mnt/hdd/PB_archive"
+fi
+
+suffix=$(date +%Y-%m-%d_%H%M%S)
 mkdir $DIR/$suffix
 
 echo "storing original pictures to $DIR/${suffix}/"
@@ -26,11 +34,11 @@ convert /home/pi/temp_montage3.jpg -bordercolor white -border 20x60  /home/pi/te
 echo "sending to printer ..."
 lp -d Canon_CP910 /home/pi/temp_montage4.jpg
 
-echo "save montage in /home/pi/PB_archive/PB_${suffix}.jpg"
-cp /home/pi/temp_montage4.jpg /home/pi/PB_archive/PB_${suffix}.jpg
+echo "save montage in ${ARCH_DIR}/PB_${suffix}.jpg"
+cp /home/pi/temp_montage4.jpg ${ARCH_DIR}/PB_${suffix}.jpg
 
 echo "clean up ..."
-rm /home/pi/photobooth_images/*.jpg
+rm ${DIR}/*.jpg
 rm /home/pi/temp*
 
 echo "done."
