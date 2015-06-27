@@ -1,3 +1,18 @@
 #!/bin/sh
+
+#
+# if using hdd change these settings to your need
+#
+HDD_TYPE="ntfs-3g"
+HDD_UUID="<your-uuid-here>"
+
+# mount hdd if possible. 
+if [ "${HDD_UUID}" != "<your-uuid-here>" ]; then
+[ -d "/mnt/hdd" ] || sudo mkdir -p /mnt/hdd;
+{
+  sudo mount -t ${HDD_TYPE} -o uid=1000,gid=1000,umask=007 UUID=${HDD_UUID} /mnt/hdd > /dev/null 2>&1 && echo "hdd found and mounted for photobooth"
+} || echo "no hdd found to mount for photobooth!"
+fi
+
 sleep 6
 sudo python /home/pi/scripts/photobooth/photo_booth.py
