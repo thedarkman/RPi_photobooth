@@ -14,6 +14,9 @@ sudo make install
 ### Multiple button function
 Pentax version uses button with long press (> 2seconds) for shutting down the Raspberry Pi.
 
+### System clock
+To make the storage of pictures on hard drive possible, the system clock need to be set.  If a raspberry pi starts without internet connection it will have a date of 1900-01-01 set. So the system clock needs to be set to a correct date (and time). This could either be done with a RTC Module (how to see f.ex. on [Adafruit pages](https://learn.adafruit.com/adding-a-real-time-clock-to-raspberry-pi)) or the way i do it, from the EXIT data of a testpicture. So this version will wait after start that a pentax camera is connected, will shoot one picture and uses the EXIF field DateTimeOriginal to check for correct date and time.
+
 ### Hard disk support
 If a hard disk is connected to the raspberry pi, i suggest the pi 2 because of the maximum current usage at the usb port, you can configure
 the photobooth script to use that:

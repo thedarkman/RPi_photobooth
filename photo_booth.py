@@ -4,7 +4,7 @@
 ## Get pslr-shoot from https://sourceforge.net/projects/pkremote/
 ## Just do "make cli" and "make install" after download as root on pi
 ##
-import RPi.GPIO as GPIO, datetime, time, os, subprocess, atexit
+import RPi.GPIO as GPIO, datetime, time, os, subprocess, atexit, threading, exifread
 
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
@@ -18,8 +18,8 @@ BUTTON_LED = 23
 GPIO.setup(POSE_LED, GPIO.OUT)
 GPIO.setup(BUTTON_LED, GPIO.OUT)
 GPIO.setup(PRINT_LED, GPIO.OUT)
-GPIO.output(BUTTON_LED, True)
-GPIO.output(PRINT_LED, False)
+GPIO.output(BUTTON_LED, False)
+GPIO.output(PRINT_LED, True)
 
 # Long press button setup
 HOLDTIME = 2                        # Duration for button hold (shutdown)
@@ -38,6 +38,7 @@ def cleanup():
   GPIO.cleanup()
 
 def blinkPoseLed():
+  print("blink startet")
   GPIO.output(POSE_LED, True)
   time.sleep(1.5)
   for i in range(5):
@@ -52,30 +53,40 @@ def blinkPoseLed():
     time.sleep(0.1)
   GPIO.output(POSE_LED, False)
 
-def blinkGreenLed():
+def blinkGreenLed(times=10):
   GPIO.output(BUTTON_LED, True)
-  for i in range(10):
+  for i in range(times):
     GPIO.output(BUTTON_LED, False)
     time.sleep(0.1)
     GPIO.output(BUTTON_LED, True)
     time.sleep(0.1)
   GPIO.output(BUTTON_LED, False)
 
-def tap():
-  snap = 0
-  while snap < 4:
-    print("pose!")
-    GPIO.output(BUTTON_LED, False)
-    blinkPoseLed()
-    print("SNAP")
+def snapPhoto():
+    print("snap started")
     ## pslr-shoot does not support filename with date/time substitution, so concat manually
+    time.sleep(4)
     d=datetime.datetime.now()
     gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o "+ directory +"/photobooth"+ d.strftime('%H%M%S') +".jpg", stderr=subprocess.STDOUT, shell=True)
-    print(gpout)
-    if "ERROR" not in gpout:
-      snap += 1
-    GPIO.output(POSE_LED, False)
+
+def tap():
+  snapCnt = 0
+  while snapCnt < 4:
+    print("pose! ("+ str(snapCnt) +")")
+    GPIO.output(BUTTON_LED, False)
+    
+    blink = threading.Thread(target=blinkPoseLed)
+    snap = threading.Thread(target=snapPhoto)
+    blink.start()
+    snap.start()
+
+    blink.join()
+    snap.join()
+    print("threads ready")
+    snapCnt += 1
     time.sleep(0.5)
+  GPIO.output(POSE_LED, False)
+  GPIO.output(BUTTON_LED, False)
   print("please wait while your photos print...")
   GPIO.output(PRINT_LED, True)
   # build image and send to printer
@@ -102,6 +113,43 @@ prevButtonState = GPIO.input(SWITCH)
 prevTime        = time.time()
 tapEnable       = False
 holdEnable      = False
+
+## wait for camera to be connected
+statout = "" 
+print(statout)
+while "connected" not in statout:
+  statout = subprocess.check_output("sudo pslr-shoot -s", stderr=subprocess.STDOUT, shell=True)
+  print(statout)
+  time.sleep(2);
+  
+## Camera is now connected, now take one picture
+print("camera is now connected ...")
+GPIO.output(PRINT_LED, False)
+blinkGreenLed(3)
+gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
+f = open('/home/pi/dateset.jpg', 'rb')
+tags = exifread.process_file(f, stop_tag='EXIF DateTimeOriginal', details=False)
+picDateStr = str(tags['EXIF DateTimeOriginal'])
+picDateStr = picDateStr.replace(":", "-", 2)
+
+sysDate = datetime.datetime.now()
+picDate = datetime.datetime.strptime(picDateStr, '%Y-%m-%d %H:%M:%S')
+print('Date from EXIF..: '+ picDateStr)
+print('Sysdate is......: '+ sysDate.strftime('%Y-%m-%d %H:%M:%S'))
+## we assume that sysdate is bigger than picdate
+delta = sysDate - picDate
+print('time delta is...: '+ str(delta))
+if delta.seconds > 14400:
+  print('difference too big, setting system clock ...')
+  ## setting sysclock
+  try:
+    setDateOut = subprocess.check_output("sudo date \"+%Y-%m-%d %T\" -s \""+ picDateStr +"\"", stderr=subprocess.STDOUT, shell=True)
+    print('successfull: '+ setDateOut)
+  except CalledProcessError as e:
+    print('setting sysdate was not successfull:\n'+ e.output)
+
+
+GPIO.output(BUTTON_LED, True)
 
 while True:
 
