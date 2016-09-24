@@ -14,5 +14,6 @@ if [ "${HDD_UUID}" != "<your-uuid-here>" ]; then
 } || echo "no hdd found to mount for photobooth!"
 fi
 
+clear
 sleep 6
 sudo python /home/pi/scripts/photobooth/photo_booth.py

@@ -4,7 +4,9 @@
 ## Get pslr-shoot from https://sourceforge.net/projects/pkremote/
 ## Just do "make cli" and "make install" after download as root on pi
 ##
+from picamera import PiCamera
 import RPi.GPIO as GPIO, datetime, time, os, subprocess, atexit, threading, exifread
+import pygame
 
 # GPIO setup
 GPIO.setmode(GPIO.BCM)
@@ -30,6 +32,11 @@ directory = '/home/pi/photobooth_images'
 if os.path.exists('/mnt/hdd/photobooth_images'):
   directory = '/mnt/hdd/photobooth_images'
   print("found hdd folder: "+ directory)
+
+# pygame env stuff to use framebuffer
+os.putenv('SDL_FBDEV','/dev/fb0')
+os.environ["SDL_FBDEV"] = "/dev/fb0"
+os.putenv('SDL_VIDEODRIVER', 'directfb')
 
 @atexit.register
 def cleanup():
@@ -67,7 +74,15 @@ def snapPhoto():
     ## pslr-shoot does not support filename with date/time substitution, so concat manually
     time.sleep(4)
     d=datetime.datetime.now()
-    gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o "+ directory +"/photobooth"+ d.strftime('%H%M%S') +".jpg", stderr=subprocess.STDOUT, shell=True)
+    file_name =  directory +"/photobooth"+ d.strftime('%H%M%S') +".jpg"
+    if usePiCam == True:
+      global cam
+      cam.start_preview()
+      time.sleep(3)
+      cam.capture(file_name)
+      cam.stop_preview()
+    else:
+      gpout = subprocess.check_output("sudo pslr-shoot -m P -i 800 -r 6 -q 3 -o "+ file_name, stderr=subprocess.STDOUT, shell=True)
 
 def tap():
   snapCnt = 0
@@ -114,43 +129,93 @@ prevTime        = time.time()
 tapEnable       = False
 holdEnable      = False
 
-## wait for camera to be connected
-statout = "" 
-print(statout)
-while "connected" not in statout:
-  statout = subprocess.check_output("sudo pslr-shoot -s", stderr=subprocess.STDOUT, shell=True)
+usePiCam = False
+
+picam_txt = subprocess.check_output("vcgencmd get_camera", stderr=subprocess.STDOUT, shell=True)
+print("picam status: "+ picam_txt)
+if "supported=1 detected=1" in picam_txt:
+  usePiCam = True
+
+print("Use picam: "+ str(usePiCam))
+
+if usePiCam == False:
+  ## wait for camera to be connected
+  statout = "" 
   print(statout)
-  time.sleep(2);
+  while "connected" not in statout:
+    statout = subprocess.check_output("sudo pslr-shoot -s", stderr=subprocess.STDOUT, shell=True)
+    print(statout)
+    time.sleep(2);
   
-## Camera is now connected, now take one picture
-print("camera is now connected ...")
-GPIO.output(PRINT_LED, False)
-blinkGreenLed(3)
-gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 10 -q 3 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
-f = open('/home/pi/dateset.jpg', 'rb')
-tags = exifread.process_file(f, stop_tag='EXIF DateTimeOriginal', details=False)
-picDateStr = str(tags['EXIF DateTimeOriginal'])
-picDateStr = picDateStr.replace(":", "-", 2)
+  ## Camera is now connected, now take one picture
+  print("Pentax DSLR camera is now connected ...")
+  GPIO.output(PRINT_LED, False)
+  blinkGreenLed(3)
+  gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 6 -q 3 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
+  f = open('/home/pi/dateset.jpg', 'rb')
+  tags = exifread.process_file(f, stop_tag='EXIF DateTimeOriginal', details=False)
+  picDateStr = str(tags['EXIF DateTimeOriginal'])
+  picDateStr = picDateStr.replace(":", "-", 2)
 
-sysDate = datetime.datetime.now()
-picDate = datetime.datetime.strptime(picDateStr, '%Y-%m-%d %H:%M:%S')
-print('Date from EXIF..: '+ picDateStr)
-print('Sysdate is......: '+ sysDate.strftime('%Y-%m-%d %H:%M:%S'))
-## we assume that sysdate is bigger than picdate
-delta = sysDate - picDate
-print('time delta is...: '+ str(delta))
-if delta.seconds > 14400:
-  print('difference too big, setting system clock ...')
-  ## setting sysclock
-  try:
-    setDateOut = subprocess.check_output("sudo date \"+%Y-%m-%d %T\" -s \""+ picDateStr +"\"", stderr=subprocess.STDOUT, shell=True)
-    print('successfull: '+ setDateOut)
-  except CalledProcessError as e:
-    print('setting sysdate was not successfull:\n'+ e.output)
+  sysDate = datetime.datetime.now()
+  picDate = datetime.datetime.strptime(picDateStr, '%Y-%m-%d %H:%M:%S')
+  print('Date from EXIF..: '+ picDateStr)
+  print('Sysdate is......: '+ sysDate.strftime('%Y-%m-%d %H:%M:%S'))
+  ## we assume that sysdate is bigger than picdate
+  if sysDate > picDate:
+    delta = sysDate - picDate
+  else:
+    delta = picDate - sysDate
+  print('time delta is...: '+ str(delta))
+  if delta.seconds > 14400:
+    print('difference too big, setting system clock ...')
+    ## setting sysclock
+    try:
+      setDateOut = subprocess.check_output("sudo date \"+%Y-%m-%d %T\" -s \""+ picDateStr +"\"", stderr=subprocess.STDOUT, shell=True)
+      print('successfull: '+ setDateOut)
+    except CalledProcessError as e:
+      print('setting sysdate was not successfull:\n'+ e.output)
+  time.sleep(1)
+  GPIO.output(PRINT_LED, False)
+  c = 0
+  while c <= 2:
+    print('using picture to show preview (count='+ str(c) +')')
+    if c > 0:
+       blinkGreenLed(3)
+       gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 6 -q 3 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
+    # show preview for setting up the camera
+    pygame.display.init()
+    img = pygame.image.load( '/home/pi/dateset.jpg' )
+    img = pygame.transform.scale(img, (640, 428))
+    screen = pygame.display.set_mode( img.get_size(), pygame.FULLSCREEN )
+    screen.blit( img, (0,0) )
+    pygame.display.flip()
+    time.sleep(15)
+    c = c + 1
+  pygame.quit() 
+else:
+  cam = PiCamera(resolution=(3280, 2464))
+  cam.vflip = True
+  GPIO.output(PRINT_LED, False)
+  blinkGreenLed(5)
+  cam.start_preview()
+  ready = False
+  while ready == False:
+    buttonState = GPIO.input(SWITCH)
+    if ((not prevButtonState) and buttonState):
+      print("Button pressed")
+      ready = True
+    time.sleep(0.05)
+  cam.stop_preview()
+  blinkGreenLed(5)  
 
+time.sleep(2)
+# Reset button state after picam config
+prevButtonState = GPIO.input(SWITCH)
 
+# We are ready
+print("Setup ready, start waiting for button ...")
 GPIO.output(BUTTON_LED, True)
-
 while True:
 
   buttonState = GPIO.input(SWITCH)
