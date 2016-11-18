@@ -38,6 +38,9 @@ os.putenv('SDL_FBDEV','/dev/fb0')
 os.environ["SDL_FBDEV"] = "/dev/fb0"
 os.putenv('SDL_VIDEODRIVER', 'directfb')
 
+# global status vars
+printing = 0
+
 @atexit.register
 def cleanup():
   GPIO.output(BUTTON_LED, False)
@@ -85,6 +88,7 @@ def snapPhoto():
       gpout = subprocess.check_output("sudo pslr-shoot -m P -i 800 -r 6 -q 3 -o "+ file_name, stderr=subprocess.STDOUT, shell=True)
 
 def tap():
+  global printing
   snapCnt = 0
   while snapCnt < 4:
     print("pose! ("+ str(snapCnt) +")")
@@ -104,24 +108,45 @@ def tap():
   GPIO.output(BUTTON_LED, False)
   print("please wait while your photos print...")
   GPIO.output(PRINT_LED, True)
+  printing = 1  
+  waitP = threading.Thread(target=waitForPrinter)
+  animateLeds = threading.Thread(target=blinkAllWhilePrinting)
+  waitP.start()
+  animateLeds.start()
+  waitP.join()
+  animateLeds.join()
+ 
+  print("ready for next round")
+  GPIO.output(PRINT_LED, False)
+  GPIO.output(BUTTON_LED, True)
+
+def waitForPrinter():
+  global printing
   # build image and send to printer
   subprocess.call("sudo /home/pi/scripts/photobooth/assemble_and_print", shell=True)
   # Wait to ensure that print queue doesn't pile up
   idle = False
   while idle == False:
-     time.sleep(5)
+     time.sleep(2)
      statout = subprocess.check_output("lpstat -p", stderr=subprocess.STDOUT, shell=True)
      if "idle" in statout:
         idle = True
         print("printer is ready")
-  print("ready for next round")
-  GPIO.output(PRINT_LED, False)
-  GPIO.output(BUTTON_LED, True)
+  printing = 0
 
 def hold():
   blinkGreenLed()
   print("long pressed button! Shutting down system")
   subprocess.call("sudo shutdown -hP now", shell=True)
+
+def blinkAllWhilePrinting():
+  while printing == 1:
+    GPIO.output(PRINT_LED, True)
+    GPIO.output(POSE_LED, True)
+    time.sleep(1)
+    GPIO.output(PRINT_LED, False)
+    GPIO.output(POSE_LED, False)
+    time.sleep(1)
 
 ## initial states for detect long or normal pressed button
 prevButtonState = GPIO.input(SWITCH)
