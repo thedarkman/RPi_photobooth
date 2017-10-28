@@ -12,11 +12,11 @@ import pygame
 GPIO.setmode(GPIO.BCM)
 SWITCH = 24
 GPIO.setup(SWITCH, GPIO.IN)
-RESET = 25
-GPIO.setup(RESET, GPIO.IN)
 PRINT_LED = 22
 POSE_LED = 18
 BUTTON_LED = 23
+PHOTO_LIGHT = 25
+GPIO.setup(PHOTO_LIGHT, GPIO.OUT)
 GPIO.setup(POSE_LED, GPIO.OUT)
 GPIO.setup(BUTTON_LED, GPIO.OUT)
 GPIO.setup(PRINT_LED, GPIO.OUT)
@@ -45,6 +45,7 @@ printing = 0
 def cleanup():
   GPIO.output(BUTTON_LED, False)
   GPIO.output(POSE_LED, False)
+  GPIO.output(PHOTO_LIGHT, False)
   GPIO.cleanup()
 
 def blinkPoseLed():
@@ -80,7 +81,7 @@ def snapPhoto():
     file_name =  directory +"/photobooth"+ d.strftime('%H%M%S') +".jpg"
     if usePiCam == True:
       global cam
-      cam.start_preview()
+      cam.start_preview()      
       time.sleep(3)
       cam.capture(file_name)
       cam.stop_preview()
@@ -90,6 +91,7 @@ def snapPhoto():
 def tap():
   global printing
   snapCnt = 0
+  GPIO.output(PHOTO_LIGHT, True)
   while snapCnt < 4:
     print("pose! ("+ str(snapCnt) +")")
     GPIO.output(BUTTON_LED, False)
@@ -106,6 +108,7 @@ def tap():
     time.sleep(0.5)
   GPIO.output(POSE_LED, False)
   GPIO.output(BUTTON_LED, False)
+  GPIO.output(PHOTO_LIGHT, False)
   print("please wait while your photos print...")
   GPIO.output(PRINT_LED, True)
   printing = 1  
@@ -129,7 +132,7 @@ def waitForPrinter():
   while idle == False:
      time.sleep(2)
      statout = subprocess.check_output("lpstat -p", stderr=subprocess.STDOUT, shell=True)
-     if "idle" in statout:
+     if "idle" in statout or "Leerlauf" in statout:
         idle = True
         print("printer is ready")
   printing = 0
@@ -142,10 +145,10 @@ def hold():
 def blinkAllWhilePrinting():
   while printing == 1:
     GPIO.output(PRINT_LED, True)
-    GPIO.output(POSE_LED, True)
+    #GPIO.output(POSE_LED, True)
     time.sleep(1)
     GPIO.output(PRINT_LED, False)
-    GPIO.output(POSE_LED, False)
+    #GPIO.output(POSE_LED, False)
     time.sleep(1)
 
 ## initial states for detect long or normal pressed button
@@ -221,6 +224,7 @@ if usePiCam == False:
 else:
   cam = PiCamera(resolution=(3280, 2464))
   cam.vflip = True
+  cam.hflip = True
   GPIO.output(PRINT_LED, False)
   blinkGreenLed(5)
   cam.start_preview()

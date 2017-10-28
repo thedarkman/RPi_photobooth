@@ -19,8 +19,8 @@ echo "storing original pictures to $DIR/${suffix}/"
 cp $DIR/*.jpg $DIR/${suffix}/
 
 echo "resizing ..."
-mogrify -resize 968x648 $DIR/*.jpg
-##mogrify -resize 825x620 $DIR/*.jpg
+##mogrify -resize 968x648 $DIR/*.jpg
+mogrify -resize 825x620 $DIR/*.jpg
 
 echo "montage 2x2 pictures ..."
 montage $DIR/*.jpg -tile 2x2 -geometry +10+10 /home/pi/temp_montage2.jpg
