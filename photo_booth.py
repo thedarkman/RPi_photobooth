@@ -85,7 +85,7 @@ def snapPhoto():
       cam.capture(file_name)
       cam.stop_preview()
     else:
-      gpout = subprocess.check_output("sudo pslr-shoot -m P -i 800 -r 6 -q 3 -o "+ file_name, stderr=subprocess.STDOUT, shell=True)
+      gpout = subprocess.check_output("sudo pslr-shoot -f -m P -i 800 -r 10 -q 2 -o "+ file_name, stderr=subprocess.STDOUT, shell=True)
 
 def tap():
   global printing
@@ -129,7 +129,7 @@ def waitForPrinter():
   while idle == False:
      time.sleep(2)
      statout = subprocess.check_output("lpstat -p", stderr=subprocess.STDOUT, shell=True)
-     if "idle" in statout:
+     if "idle" in statout or "Leerlauf" in statout:
         idle = True
         print("printer is ready")
   printing = 0
@@ -142,10 +142,10 @@ def hold():
 def blinkAllWhilePrinting():
   while printing == 1:
     GPIO.output(PRINT_LED, True)
-    GPIO.output(POSE_LED, True)
+    #GPIO.output(POSE_LED, True)
     time.sleep(1)
     GPIO.output(PRINT_LED, False)
-    GPIO.output(POSE_LED, False)
+    #GPIO.output(POSE_LED, False)
     time.sleep(1)
 
 ## initial states for detect long or normal pressed button
@@ -176,7 +176,7 @@ if usePiCam == False:
   print("Pentax DSLR camera is now connected ...")
   GPIO.output(PRINT_LED, False)
   blinkGreenLed(3)
-  gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 6 -q 3 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
+  gpout = subprocess.check_output("sudo pslr-shoot -f -m P -i 400 -r 2 -q 1 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
   f = open('/home/pi/dateset.jpg', 'rb')
   tags = exifread.process_file(f, stop_tag='EXIF DateTimeOriginal', details=False)
   picDateStr = str(tags['EXIF DateTimeOriginal'])
@@ -191,9 +191,10 @@ if usePiCam == False:
     delta = sysDate - picDate
   else:
     delta = picDate - sysDate
-  print('time delta is...: '+ str(delta))
-  if delta.seconds > 14400:
-    print('difference too big, setting system clock ...')
+  delta_seconds = (delta.days * 86400) + delta.seconds 
+  print('time delta is {} days and {} seconds --> {} seconds total'.format(delta.days, delta.seconds, delta_seconds))
+  if delta_seconds > 3600:
+    print('difference too big (more than one hour), setting system clock ...')
     ## setting sysclock
     try:
       setDateOut = subprocess.check_output("sudo date \"+%Y-%m-%d %T\" -s \""+ picDateStr +"\"", stderr=subprocess.STDOUT, shell=True)
@@ -207,7 +208,7 @@ if usePiCam == False:
     print('using picture to show preview (count='+ str(c) +')')
     if c > 0:
        blinkGreenLed(3)
-       gpout = subprocess.check_output("sudo pslr-shoot -m P -i 400 -r 6 -q 3 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
+       gpout = subprocess.check_output("sudo pslr-shoot -f -m P -i 800 -r 10 -q 2 -o /home/pi/dateset.jpg", stderr=subprocess.STDOUT, shell=True)
     # show preview for setting up the camera
     pygame.display.init()
     img = pygame.image.load( '/home/pi/dateset.jpg' )
